@@ -4,7 +4,8 @@ namespace IPP\Student;
 
 use IPP\Core\AbstractInterpreter;
 use IPP\Core\Exception\XMLException;
-use Exception;
+
+use DOMElement;
 
 
 /**
@@ -15,13 +16,16 @@ use Exception;
 class Instruction
 {
     protected string $opcode;
-    /** @var array<int, string> */
+    /** @var array<int<0, max>, array<string, string>> */
     protected $args;
 
     /**
-     * Instruction constructor.
+     * Instruction constructor
+     * 
+     * Setup a new instruction with given opcode and arguments.
      * @param string $opcode
-     * @param array<int, string> $args
+     * @param array<int<0, max>, array<string, string>> $args
+     * @return void
      */
     public function __construct(string $opcode, array $args)
     {
@@ -29,22 +33,40 @@ class Instruction
         $this->args = $args;
     }
 
-    public function getOpcode(): string
+    /**
+     * Get instruction opcode
+     * 
+     * @return string
+     */
+    public function getOpcode()
     {
         return $this->opcode;
     }
 
     /**
-     * @return array<int, string>
+     * Get instruction arguments
+     * 
+     * @return array<int<0, max>, array<string, string>>
      */
     public function getArgs()
     {
         return $this->args;
     }
 
+    /**
+     * Convert instruction to its string representation
+     * 
+     * @return string
+     */
     public function __toString()
     {
-        return $this->opcode . ' ' . implode(' ', $this->args);
+        $args = [];
+        foreach ($this->args as $arg) {
+            $type = array_key_first($arg);
+            $value = $arg[$type];
+            $args[] = $type . '@' . $value;
+        }
+        return $this->opcode . ' ' . implode(' ', $args);
     }
 }
 
@@ -54,49 +76,69 @@ class Instruction
  */
 class Interpreter extends AbstractInterpreter
 {
-    public function execute(): int
+    /** @var array<int, Instruction> */
+    protected array $instructions = [];
+
+    public function load(): int
     {
         $dom = $this->source->getDOMDocument();
-        $program = $dom->getElementsByTagName("program")->item(0);
-        if (empty($program))
-            throw new XMLException("Missing program element.");
-        $instructions = [];
+        $root = $dom->documentElement;
+        try {
+            if (empty($root))
+                throw new XMLException("Missing root element");
+            if ($root->tagName !== "program")
+                throw new XMLException("Root element is not called `program`");
+            $program = $root;
+            $instructions = [];
 
-        foreach ($program->childNodes as $instruction) {
-            try {
-                if ($instruction->nodeType !== XML_ELEMENT_NODE)
-                    continue;
+            foreach ($program->childNodes as $subElement) {
 
-                // The method cannot be undefined because we are sure that the node is an element
-                // @phpstan-ignore-next-line
-                $order = $instruction->getAttribute("order");
-                if(empty($order) || !is_numeric($order) || $order < 0)
-                    throw new Exception("Invalid order attribute");
+                    if (!$subElement instanceof DOMElement)
+                        continue;
 
-                // Same here
-                // @phpstan-ignore-next-line
-                $opcode = $instruction->getAttribute("opcode");
-                if(empty($opcode))
-                    throw new Exception("Invalid or missing opcode attribute");
+                    if ($subElement->tagName !== "instruction")
+                        throw new XMLException("Unexpected tag name: " . $subElement->tagName);
 
-                $args = [];
-                foreach ($instruction->childNodes as $arg) {
-                    if ($arg->nodeType === XML_ELEMENT_NODE && !empty($arg->nodeValue))
-                        $args[] = trim($arg->nodeValue);
-                        $arg->getAttribute("type");
-                }
+                    $instruction = $subElement;
 
-                // $this->stderr->writeString($opcode . ' ' . implode(' ', $args) . PHP_EOL);
-                $instructions[$order] = new Instruction($opcode, $args);
+                    $order = $instruction->getAttribute("order");
+                    if (empty($order))
+                        throw new XMLException("Missing order attribute");
+                    if (!is_numeric($order) || $order < 0)
+                        throw new XMLException("Invalid order attribute: " . $order);
 
-            } catch (Exception $e) {
-                throw new XMLException("Invalid source XML format: " . $e->getMessage());
+                    $opcode = $instruction->getAttribute("opcode");
+                    if (empty($opcode))
+                        throw new XMLException("Missing opcode attribute");
+
+                    $args = [];
+                    foreach ($instruction->childNodes as $arg_node) {
+                        if (!$arg_node instanceof DOMElement)
+                            continue;
+
+                        if (empty($arg_node->nodeValue))
+                            throw new XMLException("Invalid or missing argument value");
+                        $arg = [];
+                        $arg[$arg_node->getAttribute("type")] = trim($arg_node->nodeValue);
+                        $args[] = $arg;
+                    }
+                    $instructions[$order] = new Instruction($opcode, $args);
             }
+        } catch (XMLException $e) {
+            throw new XMLException("Invalid source XML format: " . $e->getMessage());
         }
-        // var_dump($instructions);
-        foreach ($instructions as $instruction) {
-            $this->stderr->writeString($instruction. PHP_EOL);
-        }
+
+        // foreach ($instructions as $instruction) {
+        //     $this->stderr->writeString($instruction. PHP_EOL);
+        // }
+
+        $this->instructions = $instructions;
+        return 0;
+    }
+
+    public function execute(): int
+    {
+        $this->load();
         return 0;
     }
 }
