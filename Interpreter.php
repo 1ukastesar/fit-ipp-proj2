@@ -5,11 +5,11 @@ namespace IPP\Student;
 use IPP\Core\AbstractInterpreter;
 use IPP\Core\Exception\XMLException;
 
+use IPP\Student\VirtualMachine;
 use IPP\Student\Exception\InvalidStructureException;
 use IPP\Student\Exception\SemanticError;
 
 use DOMElement;
-use VirtualMachine;
 
 /**
  * Main Interpreter
@@ -77,10 +77,11 @@ class Interpreter extends AbstractInterpreter
                     if (isset($args[$argOrder]))
                         throw new InvalidStructureException("Duplicate argument number: " . $argOrder);
 
-                    if (empty($argNode->nodeValue))
-                        throw new InvalidStructureException("Invalid or missing argument value");
+                    if (empty($argNode->nodeValue) && $argNode->nodeValue !== "0")
+                        throw new InvalidStructureException("Invalid or missing argument value: " . $argNode->nodeValue);
                     $arg = [];
-                    $arg[$argNode->getAttribute("type")] = trim($argNode->nodeValue);
+                    $arg["type"] = $argNode->getAttribute("type");
+                    $arg["value"] = trim($argNode->nodeValue);
                     $args[$argOrder] = $arg;
                 }
                 ksort($args);
@@ -98,7 +99,7 @@ class Interpreter extends AbstractInterpreter
         //     $this->stderr->writeString($instruction. PHP_EOL);
         // }
 
-        var_dump($instructions);
+        // var_dump($instructions);
 
         $this->instructions = $instructions;
         return 0;
@@ -108,7 +109,7 @@ class Interpreter extends AbstractInterpreter
     {
         foreach ($this->instructions as $order => $instruction) {
             if($instruction->getOpcode() === "LABEL") {
-                $label_name = $instruction->getArgs()[1]["label"];
+                $label_name = $instruction->getArgs()[1]["value"];
                 if(isset($this->labels[$label_name])) {
                     throw new SemanticError("Label already defined: " . $label_name);
                 }
@@ -121,17 +122,17 @@ class Interpreter extends AbstractInterpreter
         // }
     }
 
-    // private function interpret(): void
-    // {
-    //     $vm = new VirtualMachine($this->instructions, $this->labels);
-    //     $vm->run();
-    // }
+    private function interpret(): void
+    {
+        $vm = new VirtualMachine($this->instructions, $this->labels);
+        $vm->run();
+    }
 
     public function execute(): int
     {
         $this->load();
         $this->resolve_labels();
+        $this->interpret();
         return 0;
-
     }
 }
