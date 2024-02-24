@@ -9,8 +9,8 @@ use Throwable;
 
 class UndefinedVariableException extends IPPException
 {
-    public function __construct(string $message, ?Throwable $previous = null)
+    public function __construct(string $name, ?Throwable $previous = null)
     {
-        parent::__construct("Undefined variable: ". $message, ReturnCode::VARIABLE_ACCESS_ERROR, $previous, false);
+        parent::__construct("Undefined variable: ". $name, ReturnCode::VARIABLE_ACCESS_ERROR, $previous, false);
     }
 }

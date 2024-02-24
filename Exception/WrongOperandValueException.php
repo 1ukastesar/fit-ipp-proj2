@@ -9,8 +9,8 @@ use Throwable;
 
 class WrongOperandValueException extends IPPException
 {
-    public function __construct(string $message, ?Throwable $previous = null)
+    public function __construct(string $value, ?Throwable $previous = null)
     {
-        parent::__construct("Wrong operand value: ". $message, ReturnCode::OPERAND_VALUE_ERROR, $previous, false);
+        parent::__construct("Wrong operand value: ". $value, ReturnCode::OPERAND_VALUE_ERROR, $previous, false);
     }
 }

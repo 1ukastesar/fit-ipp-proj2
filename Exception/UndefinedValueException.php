@@ -9,8 +9,8 @@ use Throwable;
 
 class UndefinedValueException extends IPPException
 {
-    public function __construct(string $message, ?Throwable $previous = null)
+    public function __construct(string $value, ?Throwable $previous = null)
     {
-        parent::__construct("Undefined value: ". $message, ReturnCode::VALUE_ERROR, $previous, false);
+        parent::__construct("Undefined value: ". $value, ReturnCode::VALUE_ERROR, $previous, false);
     }
 }
