@@ -6,8 +6,10 @@ use IPP\Core\AbstractInterpreter;
 use IPP\Core\Exception\XMLException;
 
 use IPP\Student\Exception\InvalidStructureException;
+use IPP\Student\Exception\SemanticError;
 
 use DOMElement;
+use VirtualMachine;
 
 /**
  * Main Interpreter
@@ -17,6 +19,8 @@ class Interpreter extends AbstractInterpreter
 {
     /** @var array<int, Instruction> */
     protected array $instructions = [];
+    /** @var array<string, int> */
+    protected array $labels = [];
 
     private function load(): int
     {
@@ -34,6 +38,7 @@ class Interpreter extends AbstractInterpreter
         if ($language !== "IPPcode24")
             throw new InvalidStructureException("Invalid language declaration: " . $language);
 
+        // @var array<int, Instruction>
         $instructions = [];
 
         // Iterate over all subElements, treat them as instructions
@@ -61,37 +66,72 @@ class Interpreter extends AbstractInterpreter
 
                 // Loop through all arguments and store them in an array
                 $args = [];
-                foreach ($instruction->childNodes as $arg_node) {
-                    if (!$arg_node instanceof DOMElement)
+                foreach ($instruction->childNodes as $argNode) {
+                    if (!$argNode instanceof DOMElement)
                         continue;
 
-                    if (!preg_match("/^arg[1-3]+$/", $arg_node->tagName))
-                        throw new InvalidStructureException("Unexpected tag name: " . $arg_node->tagName);
+                    if (!preg_match("/^(arg)([1-3])+$/", $argNode->tagName, $matches))
+                        throw new InvalidStructureException("Unexpected tag name: " . $argNode->tagName);
 
-                    if (empty($arg_node->nodeValue))
+                    $argOrder = intval($matches[2]);
+                    if (isset($args[$argOrder]))
+                        throw new InvalidStructureException("Duplicate argument number: " . $argOrder);
+
+                    if (empty($argNode->nodeValue))
                         throw new InvalidStructureException("Invalid or missing argument value");
                     $arg = [];
-                    $arg[$arg_node->getAttribute("type")] = trim($arg_node->nodeValue);
-                    $args[] = $arg;
+                    $arg[$argNode->getAttribute("type")] = trim($argNode->nodeValue);
+                    $args[$argOrder] = $arg;
                 }
+                ksort($args);
                 $instructions[$order] = new Instruction($opcode, $args);
         }
 
         // The instruction order in source XML is not guaranteed
         // we need to sort it based on order attribute (first array key)
-        sort($instructions);
+        ksort($instructions);
 
-        foreach ($instructions as $instruction) {
-            $this->stderr->writeString($instruction. PHP_EOL);
-        }
+        // Reindex the array to get "natural" order
+        $instructions = array_values($instructions);
+
+        // foreach ($instructions as $instruction) {
+        //     $this->stderr->writeString($instruction. PHP_EOL);
+        // }
+
+        var_dump($instructions);
 
         $this->instructions = $instructions;
         return 0;
     }
 
+    private function resolve_labels(): void
+    {
+        foreach ($this->instructions as $order => $instruction) {
+            if($instruction->getOpcode() === "LABEL") {
+                $label_name = $instruction->getArgs()[1]["label"];
+                if(isset($this->labels[$label_name])) {
+                    throw new SemanticError("Label already defined: " . $label_name);
+                }
+                $this->labels[$label_name] = $order;
+            }
+        }
+
+        // foreach ($this->labels as $label => $order) {
+        //     $this->stderr->writeString($label . " " . $order . PHP_EOL);
+        // }
+    }
+
+    // private function interpret(): void
+    // {
+    //     $vm = new VirtualMachine($this->instructions, $this->labels);
+    //     $vm->run();
+    // }
+
     public function execute(): int
     {
         $this->load();
+        $this->resolve_labels();
         return 0;
+
     }
 }
