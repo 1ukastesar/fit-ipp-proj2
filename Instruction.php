@@ -10,7 +10,7 @@ namespace IPP\Student;
 class Instruction
 {
     protected string $opcode;
-    /** @var array<int<0, max>, array<string, string>> */
+    /** @var array<int, array<string, string>> */
     protected $args;
 
     /**
@@ -18,7 +18,7 @@ class Instruction
      * 
      * Setup a new instruction with given opcode and arguments.
      * @param string $opcode
-     * @param array<int<0, max>, array<string, string>> $args
+     * @param array<int, array<string, string>> $args
      * @return void
      */
     public function __construct(string $opcode, array $args)
@@ -40,7 +40,7 @@ class Instruction
     /**
      * Get instruction arguments
      * 
-     * @return array<int<0, max>, array<string, string>>
+     * @return array<int, array<string, string>>
      */
     public function getArgs()
     {
