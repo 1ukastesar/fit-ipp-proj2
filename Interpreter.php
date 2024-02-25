@@ -138,7 +138,7 @@ class Interpreter extends AbstractInterpreter
 
     private function interpret(): void
     {
-        $vm = new VirtualMachine($this->instructions, $this->labels);
+        $vm = new VirtualMachine($this->instructions, $this->labels, $this->input, $this->stdout, $this->stderr);
         $vm->run();
     }
 

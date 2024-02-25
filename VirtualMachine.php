@@ -9,22 +9,39 @@ use IPP\Student\Exception\UndefinedValueException;
 use IPP\Student\Exception\WrongOperandTypeException;
 use IPP\Student\Exception\WrongOperandValueException;
 
+use IPP\Core\Interface\InputReader;
+use IPP\Core\Interface\OutputWriter;
+
+/**
+ * VirtualMachine
+ * @package IPP\Student
+ * Represents a virtual machine for IPPcode24
+ */
 class VirtualMachine {
 
     /** @var array<Instruction> */
     private $instructions;
     /** @var array<string, int> */
     private $labels;
+    /** @var InputReader */
+    private $input;
+    /** @var OutputWriter */
+    private $stdout;
+    /** @var OutputWriter */
+    private $stderr;
+
     /** @var int */
     private $ip;
-    /** @var Stack */
+    /** @var CallStack */
     private $callStack;
     /** @var FrameStack */
     private $frameStack;
-    /** @var array<string, array<string, string>>|null */
-    private $temporaryFrame;
+    /** @var Stack */
+    private $dataStack;
     /** @var array<string, array<string, string>> */
     private $globalFrame;
+    /** @var array<string, array<string, string>>|null */
+    private $temporaryFrame;
 
     /**
      * VirtualMachine constructor
@@ -32,15 +49,23 @@ class VirtualMachine {
      * Setup a new virtual machine with given instructions and labels.
      * @param array<Instruction> $instructions
      * @param array<string, int> $labels
+     * @param InputReader $input
+     * @param OutputWriter $stdout
+     * @param OutputWriter $stderr
      * @return void
      */
-    public function __construct($instructions, $labels) 
+    public function __construct($instructions, $labels, $input, $stdout, $stderr)
     {
         $this->instructions = $instructions;
         $this->labels = $labels;
+        $this->input = $input;
+        $this->stdout = $stdout;
+        $this->stderr = $stderr;
+
         $this->ip = intval(array_key_first($instructions));
-        $this->callStack = new Stack();
+        $this->callStack = new CallStack();
         $this->frameStack = new FrameStack();
+        $this->dataStack = new Stack();
         $this->globalFrame = [];
         $this->temporaryFrame = null;
     }
@@ -54,6 +79,7 @@ class VirtualMachine {
      */
     private function executeInstruction($instruction)
     {
+        // @phpstan-ignore-next-line
         call_user_func(array($this, strtoupper($instruction->getOpcode())), $instruction->getArgs());
     }
 
@@ -70,8 +96,9 @@ class VirtualMachine {
             $this->executeInstruction($instruction);
             $this->ip++;
         }
-        var_dump($this->globalFrame);
-        var_dump($this->frameStack);
+        // var_dump($this->globalFrame);
+        // var_dump($this->frameStack);
+        // var_dump($this->dataStack);
     }
 
     /**
@@ -151,7 +178,11 @@ class VirtualMachine {
                 if (!array_key_exists($name, $this->frameStack->top())) {
                     throw new UndefinedVariableException($name);
                 }
-                $this->frameStack->top()[$name] = ["type" => $type, "value" => $value];
+                // TODO rewrite this to the more effective variant (use reference instead of copy)
+                $lf = $this->frameStack->pop();
+                $lf[$name] = ["type" => $type, "value" => $value];
+                $this->frameStack->push($lf);
+                // $this->frameStack->top()[$name] = ["type" => $type, "value" => $value];
                 break;
             case "TF":
                 if(!is_array($this->temporaryFrame)) {
@@ -168,7 +199,7 @@ class VirtualMachine {
     }
 
     /** 
-     * MOVE
+     * MOVE <var> <symb>
      * 
      * Move value (from const or another variable) to a variable.
      * 
@@ -238,7 +269,7 @@ class VirtualMachine {
     }
 
     /** 
-     * DEFVAR
+     * DEFVAR <var>
      * 
      * Define a new variable in the correct frame.
      * 
@@ -273,7 +304,11 @@ class VirtualMachine {
                     // weird but ok
                     throw new SemanticError($name);
                 }
-                $this->frameStack->top()[$name] = ["type" => "nil", "value" => ""];
+                // TODO rewrite this to the more effective variant (use reference instead of copy)
+                $lf = $this->frameStack->pop();
+                $lf[$name] = ["type" => "nil", "value" => ""];
+                $this->frameStack->push($lf);
+                // $this->frameStack->top()[$name] = ["type" => "nil", "value" => ""];
                 break;
             case "TF":
                 if(!is_array($this->temporaryFrame))
@@ -285,6 +320,170 @@ class VirtualMachine {
                 break;
             default:
                 throw new WrongOperandValueException("Invalid frame: " . $frame);
+        }
+    }
+
+    /** 
+     * CALL <label>
+     * 
+     * Call a function.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function CALL($args)
+    {
+        $this->callStack->push($this->ip);
+        $this->ip = $this->labels[$args[1]["value"]];
+    }
+
+    /** 
+     * RETURN
+     * 
+     * Return from a function.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function RETURN($args)
+    {
+        $this->ip = $this->callStack->pop();
+    }
+
+    /** 
+     * PUSHS <symb>
+     * 
+     * Push a value to the data stack.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function PUSHS($args)
+    {
+        if ($args[1]["type"] === "var") {
+            $var = $this->getVariable($args[1]["value"]);
+            $this->dataStack->push($var);
+        } else {
+            $this->dataStack->push($args[1]);
+        }
+    }
+
+    /** 
+     * POPS <var>
+     * 
+     * Pop a value from the data stack to a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     * @throws WrongOperandTypeException
+     */
+    private function POPS($args)
+    {
+        if ($args[1]["type"] !== "var") {
+            throw new WrongOperandTypeException("Invalid argument type: " . $args[1]["type"]);
+        }
+
+        $dstName = $args[1]["value"];
+        $src = $this->dataStack->pop();
+        $this->setVariable($dstName, $src["type"], $src["value"]);
+    }
+
+    /** 
+     * ADD <var> <symb1> <symb2>
+     * 
+     * Add two values and store the result in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     * @throws WrongOperandTypeException
+     * @throws WrongOperandValueException
+     */
+    private function ADD($args)
+    {
+        if ($args[1]["type"] !== "var") {
+            throw new WrongOperandTypeException("Invalid argument type: " . $args[1]["type"]);
+        }
+
+        $dstName = $args[1]["value"];
+
+        if ($args[2]["type"] === "var") {
+            $src1 = $this->getVariable($args[2]["value"]);
+        } else {
+            $src1 = $args[2];
+        }
+
+        if ($args[3]["type"] === "var") {
+            $src2 = $this->getVariable($args[3]["value"]);
+        } else {
+            $src2 = $args[3];
+        }
+
+        if ($src1["type"] !== "int" || $src2["type"] !== "int") {
+            throw new WrongOperandTypeException("Invalid argument type: " . $src1["type"] . " or " . $src2["type"]);
+        }
+
+        $value = intval($src1["value"]) + intval($src2["value"]);
+        $this->setVariable($dstName, "int", strval($value));
+    }
+
+    /**
+     * READ <var> <type>
+     * 
+     * Read a value from stdin to a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     * @throws WrongOperandTypeException
+     * @throws WrongOperandValueException
+     * @throws UndefinedVariableException
+     * @throws UndefinedFrameException
+     */
+    private function READ($args)
+    {
+        if ($args[1]["type"] !== "var") {
+            throw new WrongOperandTypeException("Invalid argument type: " . $args[1]["type"]);
+        }
+
+        $dstName = $args[1]["value"];
+        $type = $args[2]["value"];
+
+        switch($type) {
+            case "int":
+                $value = $this->input->readInt();
+                break;
+            case "string":
+                $value = $this->input->readString();
+                break;
+            case "bool":
+                $value = $this->input->readBool();
+                break;
+            default:
+                throw new WrongOperandValueException("Invalid type: " . $type);
+        }
+
+        if ($value === null) {
+            $type = "nil";
+            $value = "nil";
+        }
+
+        $this->setVariable($dstName, $type, strval($value));
+    }
+
+    /**
+     * WRITE <symb>
+     * 
+     * Write a value to stdout.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function WRITE($args)
+    {
+        if ($args[1]["type"] === "var") {
+            $var = $this->getVariable($args[1]["value"]);
+            $this->stdout->writeString($var["value"]);
+        } else {
+            $this->stdout->writeString($args[1]["value"]);
         }
     }
 }
