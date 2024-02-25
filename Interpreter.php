@@ -26,17 +26,21 @@ class Interpreter extends AbstractInterpreter
     {
         $dom = $this->source->getDOMDocument();
         $root = $dom->documentElement;
-        if (empty($root))
+        if (empty($root)) {
             throw new XMLException("Missing root element");
-        if ($root->tagName !== "program")
+        }
+        if ($root->tagName !== "program") {
             throw new InvalidStructureException("Root element is not called `program`");
+        }
         $program = $root;
 
         $language = $program->getAttribute("language");
-        if (!$language)
+        if (!$language) {
             throw new InvalidStructureException("Missing language declaration");
-        if ($language !== "IPPcode24")
+        }
+        if ($language !== "IPPcode24") {
             throw new InvalidStructureException("Invalid language declaration: " . $language);
+        }
 
         // @var array<int, Instruction>
         $instructions = [];
@@ -44,41 +48,51 @@ class Interpreter extends AbstractInterpreter
         // Iterate over all subElements, treat them as instructions
         foreach ($program->childNodes as $subElement) {
 
-                if (!$subElement instanceof DOMElement)
+                if (!$subElement instanceof DOMElement) {
                     continue;
+                }
 
-                if ($subElement->tagName !== "instruction")
+                if ($subElement->tagName !== "instruction") {
                     throw new InvalidStructureException("Unexpected tag name: " . $subElement->tagName);
+                }
 
                 $instruction = $subElement;
 
                 $order = $instruction->getAttribute("order");
-                if (empty($order))
+                if (empty($order)) {
                     throw new InvalidStructureException("Missing order attribute");
-                if (!is_numeric($order) || $order < 0)
+                }
+                if (!is_numeric($order) || $order < 0) {
                     throw new InvalidStructureException("Invalid order attribute: " . $order);
-                if (isset($instructions[$order]))
+                }
+                if (isset($instructions[$order])) {
                     throw new InvalidStructureException("Duplicate order attribute: " . $order);
+                }
 
                 $opcode = $instruction->getAttribute("opcode");
-                if (empty($opcode))
+                if (empty($opcode)) {
                     throw new InvalidStructureException("Missing opcode attribute");
+                }
 
                 // Loop through all arguments and store them in an array
                 $args = [];
                 foreach ($instruction->childNodes as $argNode) {
-                    if (!$argNode instanceof DOMElement)
+                    if (!$argNode instanceof DOMElement) {
                         continue;
+                    }
 
-                    if (!preg_match("/^(arg)([1-3])+$/", $argNode->tagName, $matches))
+                    if (!preg_match("/^(arg)([1-3])+$/", $argNode->tagName, $matches)) {
                         throw new InvalidStructureException("Unexpected tag name: " . $argNode->tagName);
+                    }
 
                     $argOrder = intval($matches[2]);
-                    if (isset($args[$argOrder]))
+                    if (isset($args[$argOrder])) {
                         throw new InvalidStructureException("Duplicate argument number: " . $argOrder);
+                    }
 
-                    if (empty($argNode->nodeValue) && $argNode->nodeValue !== "0")
+                    if (empty($argNode->nodeValue) && $argNode->nodeValue !== "0") {
                         throw new InvalidStructureException("Invalid or missing argument value: " . $argNode->nodeValue);
+                    }
                     $arg = [];
                     $arg["type"] = $argNode->getAttribute("type");
                     $arg["value"] = trim($argNode->nodeValue);
@@ -108,9 +122,9 @@ class Interpreter extends AbstractInterpreter
     private function resolve_labels(): void
     {
         foreach ($this->instructions as $order => $instruction) {
-            if($instruction->getOpcode() === "LABEL") {
+            if ($instruction->getOpcode() === "LABEL") {
                 $label_name = $instruction->getArgs()[1]["value"];
-                if(isset($this->labels[$label_name])) {
+                if (isset($this->labels[$label_name])) {
                     throw new SemanticError("Label already defined: " . $label_name);
                 }
                 $this->labels[$label_name] = $order;

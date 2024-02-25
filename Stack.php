@@ -45,7 +45,7 @@ class Stack {
      */
     public function pop()
     {
-        if($this->isEmpty()) {
+        if ($this->isEmpty()) {
             throw new EmptyStackException();
         }
         return array_pop($this->stack);
@@ -59,7 +59,7 @@ class Stack {
      */
     public function top()
     {
-        if($this->isEmpty()) {
+        if ($this->isEmpty()) {
             throw new EmptyStackException();
         }
         return end($this->stack);
@@ -103,7 +103,7 @@ class FrameStack extends Stack {
      * @throws UndefinedFrameException
      */
     public function pop() {
-        if(empty($this->stack)) {
+        if (empty($this->stack)) {
             throw new UndefinedFrameException("Frame stack is empty");
         }
         return array_pop($this->stack);
@@ -116,7 +116,7 @@ class FrameStack extends Stack {
      * @throws UndefinedFrameException
      */
     public function top() {
-        if(empty($this->stack)) {
+        if (empty($this->stack)) {
             throw new UndefinedFrameException("Frame stack is empty");
         }
         return end($this->stack);
