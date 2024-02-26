@@ -9,10 +9,11 @@ use IPP\Student\Exception\UndefinedFrameException;
  * Stack
  * @package IPP\Student
  * Represents a stack data structure
+ * @template T
  */
 class Stack {
 
-    /** @var array<mixed> */
+    /** @var array<T> */
     protected $stack;
 
     /**
@@ -29,7 +30,7 @@ class Stack {
     /**
      * Push an item to the stack
      * 
-     * @param mixed $item
+     * @param T $item
      * @return void
      */
     public function push($item)

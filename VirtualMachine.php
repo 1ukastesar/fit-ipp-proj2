@@ -32,11 +32,11 @@ class VirtualMachine {
 
     /** @var int */
     private $ip;
-    /** @var CallStack */
+    /** @var Stack<int> */
     private $callStack;
-    /** @var FrameStack */
+    /** @var Stack<array<string, array<string, string>>> */
     private $frameStack;
-    /** @var Stack */
+    /** @var Stack<array<string, string>> */
     private $dataStack;
     /** @var array<string, array<string, string>> */
     private $globalFrame;
@@ -63,8 +63,8 @@ class VirtualMachine {
         $this->stderr = $stderr;
 
         $this->ip = intval(array_key_first($instructions));
-        $this->callStack = new CallStack();
-        $this->frameStack = new FrameStack();
+        $this->callStack = new Stack();
+        $this->frameStack = new Stack();
         $this->dataStack = new Stack();
         $this->globalFrame = [];
         $this->temporaryFrame = null;
