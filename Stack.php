@@ -40,12 +40,12 @@ class Stack {
     /**
      * Pop an item from the stack
      * 
-     * @return mixed
+     * @return T
      * @throws EmptyStackException
      */
     public function pop()
     {
-        if ($this->isEmpty()) {
+        if (empty($this->stack)) {
             throw new EmptyStackException();
         }
         return array_pop($this->stack);
@@ -54,12 +54,12 @@ class Stack {
     /**
      * Get the top item from the stack
      * 
-     * @return mixed
+     * @return T
      * @throws EmptyStackException
      */
     public function top()
     {
-        if ($this->isEmpty()) {
+        if (empty($this->stack)) {
             throw new EmptyStackException();
         }
         return end($this->stack);
