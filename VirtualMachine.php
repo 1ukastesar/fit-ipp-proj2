@@ -200,29 +200,61 @@ class VirtualMachine {
     }
 
     /** 
+     * symb
+     * 
+     * Resolve and return a value from a variable or a constant.
+     * 
+     * @param array<string, string> $arg
+     * @return array<string, string>
+     * @throws WrongOperandTypeException
+     */
+    private function symb($arg)
+    {
+        $type = $arg["type"];
+        switch($type) {
+            case "var":
+                return $this->getVariable($arg["value"]);
+            case "int":
+            case "bool":
+            case "string":
+            case "nil":
+                return $arg;
+            default:
+                throw new WrongOperandTypeException($type);
+        }
+    }
+
+    /** 
+     * var
+     * 
+     * Check if argument is a variable.
+     * 
+     * @param array<string, string> $arg
+     * @return array<string, string>
+     * @throws WrongOperandTypeException
+     */
+    private function var($arg)
+    {
+        if ($arg["type"] !== "var") {
+            throw new WrongOperandTypeException($arg["type"]);
+        }
+        return $arg;
+    }
+
+    /** 
      * MOVE <var> <symb>
      * 
      * Move value (from const or another variable) to a variable.
      * 
      * @param array<int, array<string, string>> $args
      * @return void
-     * @throws WrongOperandTypeException
      */
     private function MOVE($args)
     {
-        if ($args[1]["type"] !== "var") {
-            throw new WrongOperandTypeException("Invalid argument type: " . $args[1]["type"]);
-        }
+        $dst = $this->var($args[1])["value"];
+        $src = $this->symb($args[2]);
 
-        $dstName = $args[1]["value"];
-
-        if ($args[2]["type"] === "var") {
-            $src = $this->getVariable($args[2]["value"]);
-        } else {
-            $src = $args[2];
-        }
-
-        $this->setVariable($dstName, $src["type"], $src["value"]);
+        $this->setVariable($dst, $src["type"], $src["value"]);
     }
 
     /** 
@@ -278,16 +310,11 @@ class VirtualMachine {
      * @return void
      * @throws SemanticError
      * @throws UndefinedFrameException
-     * @throws WrongOperandTypeException
      * @throws WrongOperandValueException
      */
     private function DEFVAR($args)
     {
-        if ($args[1]["type"] !== "var") {
-            throw new WrongOperandTypeException("Invalid argument type: " . $args[1]["type"]);
-        }
-
-        $var = explode("@", $args[1]["value"], 2); // Max 2 parts
+        $var = explode("@", $this->var($args[1])["value"], 2); // Max 2 parts
         $frame = $var[0];
         $name = $var[1];
         switch($frame) {
@@ -361,12 +388,7 @@ class VirtualMachine {
      */
     private function PUSHS($args)
     {
-        if ($args[1]["type"] === "var") {
-            $var = $this->getVariable($args[1]["value"]);
-            $this->dataStack->push($var);
-        } else {
-            $this->dataStack->push($args[1]);
-        }
+        $this->dataStack->push($this->symb($args[1]));
     }
 
     /** 
@@ -376,55 +398,127 @@ class VirtualMachine {
      * 
      * @param array<int, array<string, string>> $args
      * @return void
-     * @throws WrongOperandTypeException
      */
     private function POPS($args)
     {
-        if ($args[1]["type"] !== "var") {
-            throw new WrongOperandTypeException("Invalid argument type: " . $args[1]["type"]);
+        $dst = $this->var($args[1])["value"];
+        $src = $this->dataStack->pop();
+        // @phpstan-ignore-next-line
+        $this->setVariable($dst, $src["type"], $src["value"]);
+    }
+
+    /**
+     * Check if both symbols are integers.
+     * 
+     * @param array<string, string> $src1
+     * @param array<string, string> $src2
+     * @return void
+     * @throws WrongOperandTypeException
+     */
+    private function checkInts($src1, $src2)
+    {
+        if ($src1["type"] !== "int") {
+            throw new WrongOperandTypeException($src1["type"]);
         }
 
-        $dstName = $args[1]["value"];
-        $src = $this->dataStack->pop();
-        $this->setVariable($dstName, $src["type"], $src["value"]);
+        if ($src2["type"] !== "int") {
+            throw new WrongOperandTypeException($src2["type"]);
+        }
+    }
+
+    /**
+     * Convert a symbol to an integer.
+     * 
+     * @param array<string, string> $arg
+     * @return int
+     * @throws WrongOperandTypeException
+     */
+    private function convertToInt($arg)
+    {
+        if ($arg["type"] !== "int") {
+            throw new WrongOperandTypeException($arg["type"]);
+        }
+
+        // TODO type checks
+        return intval($arg["value"]);
     }
 
     /** 
      * ADD <var> <symb1> <symb2>
      * 
-     * Add two values and store the result in a variable.
+     * Add two integers and store the result in a variable.
      * 
      * @param array<int, array<string, string>> $args
      * @return void
-     * @throws WrongOperandTypeException
-     * @throws WrongOperandValueException
      */
     private function ADD($args)
     {
-        if ($args[1]["type"] !== "var") {
-            throw new WrongOperandTypeException("Invalid argument type: " . $args[1]["type"]);
+        $dst = $this->var($args[1])["value"];
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+        $value = $this->convertToInt($src1) + $this->convertToInt($src2);
+        $this->setVariable($dst, "int", strval($value));
+    }
+
+    /** 
+     * SUB <var> <symb1> <symb2>
+     * 
+     * Subtract two integers and store the result in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function SUB($args)
+    {
+        $dst = $this->var($args[1])["value"];
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+        $value = $this->convertToInt($src1) - $this->convertToInt($src2);
+        $this->setVariable($dst, "int", strval($value));
+    }
+
+    /** 
+     * MUL <var> <symb1> <symb2>
+     * 
+     * Multiply two integers and store the result in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function MUL($args)
+    {
+        $dst = $this->var($args[1])["value"];
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+        $value = $this->convertToInt($src1) * $this->convertToInt($src2);
+        $this->setVariable($dst, "int", strval($value));
+    }
+
+    /** 
+     * IDIV <var> <symb1> <symb2>
+     * 
+     * Divide two integers and store the result in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     * @throws WrongOperandValueException
+     */
+    private function IDIV($args)
+    {
+        $dst = $this->var($args[1])["value"];
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+        $divisor = $this->convertToInt($src2);
+        if ($divisor === 0) {
+            throw new WrongOperandValueException("Division by zero");
         }
 
-        $dstName = $args[1]["value"];
-
-        if ($args[2]["type"] === "var") {
-            $src1 = $this->getVariable($args[2]["value"]);
-        } else {
-            $src1 = $args[2];
-        }
-
-        if ($args[3]["type"] === "var") {
-            $src2 = $this->getVariable($args[3]["value"]);
-        } else {
-            $src2 = $args[3];
-        }
-
-        if ($src1["type"] !== "int" || $src2["type"] !== "int") {
-            throw new WrongOperandTypeException("Invalid argument type: " . $src1["type"] . " or " . $src2["type"]);
-        }
-
-        $value = intval($src1["value"]) + intval($src2["value"]);
-        $this->setVariable($dstName, "int", strval($value));
+        $value = intdiv($this->convertToInt($src1), $divisor);
+        $this->setVariable($dst, "int", strval($value));
     }
 
     /**
@@ -436,13 +530,11 @@ class VirtualMachine {
      * @return void
      * @throws WrongOperandTypeException
      * @throws WrongOperandValueException
-     * @throws UndefinedVariableException
-     * @throws UndefinedFrameException
      */
     private function READ($args)
     {
         if ($args[1]["type"] !== "var") {
-            throw new WrongOperandTypeException("Invalid argument type: " . $args[1]["type"]);
+            throw new WrongOperandTypeException($args[1]["type"]);
         }
 
         $dstName = $args[1]["value"];
@@ -480,11 +572,42 @@ class VirtualMachine {
      */
     private function WRITE($args)
     {
-        if ($args[1]["type"] === "var") {
-            $var = $this->getVariable($args[1]["value"]);
-            $this->stdout->writeString($var["value"]);
-        } else {
-            $this->stdout->writeString($args[1]["value"]);
-        }
+        $this->stdout->writeString($this->symb($args[1])["value"]);
+    }
+
+    /**
+     * DPRINT <symb>
+     * 
+     * Write a value to stderr.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     *
+     */
+    private function DPRINT($args)
+    {
+        $this->stderr->writeString($this->symb($args[1])["value"] . PHP_EOL);
+    }
+
+    /**
+     * BREAK
+     * 
+     * Print the current state of the virtual machine to stderr.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function BREAK($args)
+    {
+        $this->stderr->writeString("Instruction pointer: " . $this->ip . PHP_EOL);
+        $this->stderr->writeString(PHP_EOL);
+        $globalFrame    = (empty($this->globalFrame))    ? "Empty" . PHP_EOL : print_r($this->globalFrame, true);
+        $temporaryFrame = (empty($this->temporaryFrame)) ? "Empty" . PHP_EOL : print_r($this->temporaryFrame, true);
+        $frameStack     = ($this->frameStack->isEmpty()) ? "Empty" . PHP_EOL : print_r($this->frameStack, true);
+        $dataStack      = ($this->dataStack->isEmpty())  ? "Empty" . PHP_EOL : print_r($this->dataStack, true);
+        $this->stderr->writeString("Global frame: "    . $globalFrame    . PHP_EOL);
+        $this->stderr->writeString("Temporary frame: " . $temporaryFrame . PHP_EOL);
+        $this->stderr->writeString("Frame stack: "     . $frameStack     . PHP_EOL);
+        $this->stderr->writeString("Data stack: "      . $dataStack      . PHP_EOL);
     }
 }
