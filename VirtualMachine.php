@@ -2,6 +2,7 @@
 
 namespace IPP\Student;
 
+use IPP\Core\Exception\NotImplementedException;
 use IPP\Student\Exception\SemanticError;
 use IPP\Student\Exception\UndefinedFrameException;
 use IPP\Student\Exception\UndefinedVariableException;
@@ -11,6 +12,9 @@ use IPP\Student\Exception\WrongOperandValueException;
 
 use IPP\Core\Interface\InputReader;
 use IPP\Core\Interface\OutputWriter;
+use IPP\Student\Exception\StringOperationException;
+
+use DivisionByZeroError;
 
 /**
  * VirtualMachine
@@ -68,6 +72,9 @@ class VirtualMachine {
         $this->dataStack = new Stack();
         $this->globalFrame = [];
         $this->temporaryFrame = null;
+
+        // Use UTF-8 for string operations
+        mb_internal_encoding("UTF-8");
     }
 
     /**
@@ -79,8 +86,118 @@ class VirtualMachine {
      */
     private function executeInstruction($instruction)
     {
-        // @phpstan-ignore-next-line
-        call_user_func(array($this, strtoupper($instruction->getOpcode())), $instruction->getArgs());
+        // call_user_func(array($this, strtoupper($instruction->getOpcode())), $instruction->getArgs());
+        $args = $instruction->getArgs();
+        $opcode = strtoupper($instruction->getOpcode());
+        switch ($opcode) {
+            case "MOVE":
+                $this->MOVE($args);
+                break;
+            case "CREATEFRAME":
+                $this->CREATEFRAME($args);
+                break;
+            case "PUSHFRAME":
+                $this->PUSHFRAME($args);
+                break;
+            case "POPFRAME":
+                $this->POPFRAME($args);
+                break;
+            case "DEFVAR":
+                $this->DEFVAR($args);
+                break;
+            case "CALL":
+                $this->CALL($args);
+                break;
+            case "RETURN":
+                $this->RETURN($args);
+                break;
+            case "PUSHS":
+                $this->PUSHS($args);
+                break;
+            case "POPS":
+                $this->POPS($args);
+                break;
+            case "ADD":
+                $this->ADD($args);
+                break;
+            case "SUB":
+                $this->SUB($args);
+                break;
+            case "MUL":
+                $this->MUL($args);
+                break;
+            case "IDIV":
+                $this->IDIV($args);
+                break;
+            case "LT":
+                // $this->LT($args);
+                // break;
+            case "GT":
+                // $this->GT($args);
+                // break;
+            case "EQ":
+                // $this->EQ($args);
+                // break;
+            case "AND":
+                // $this->AND($args);
+                // break;
+            case "OR":
+                // $this->OR($args);
+                // break;
+            case "NOT":
+                // $this->NOT($args);
+                // break;
+                throw new NotImplementedException("Not implemented yet: " . $opcode);
+            case "INT2CHAR":
+                $this->INT2CHAR($args);
+                break;
+            case "STRI2INT":
+                $this->STRI2INT($args);
+                break;
+            case "READ":
+                $this->READ($args);
+                break;
+            case "WRITE":
+                $this->WRITE($args);
+                break;
+            case "CONCAT":
+                $this->CONCAT($args);
+                break;
+            case "STRLEN":
+                $this->STRLEN($args);
+                break;
+            case "GETCHAR":
+                $this->GETCHAR($args);
+                break;
+            case "SETCHAR":
+                $this->SETCHAR($args);
+                break;
+            case "TYPE":
+                $this->TYPE($args);
+                break;
+            case "LABEL":
+                break;
+            case "JUMP":
+                $this->JUMP($args);
+                break;
+            case "JUMPIFEQ":
+                $this->JUMPIFEQ($args);
+                break;
+            case "JUMPIFNEQ":
+                $this->JUMPIFNEQ($args);
+                break;
+            case "EXIT":
+                $this->EXIT($args);
+                break;
+            case "DPRINT":
+                $this->DPRINT($args);
+                break;
+            case "BREAK":
+                $this->BREAK($args);
+                break;
+            default:
+                throw new NotImplementedException("Not implemented yet: " . $opcode);
+        }
     }
 
     /**
@@ -217,6 +334,14 @@ class VirtualMachine {
             case "int":
             case "bool":
             case "string":
+                $lastPos = 0;
+                $value = $arg["value"];
+                while($lastPos < mb_strlen($value) && ($lastPos = mb_strpos($value, "\\", $lastPos)) !== false) {
+                    $escaped = mb_chr(intval(mb_substr($value, $lastPos + 1, 3)));
+                    $value = mb_substr($value, 0, $lastPos) . $escaped . mb_substr($value, $lastPos + 4);
+                    $lastPos += 4;
+                }
+                return ["type" => $type, "value" => $value];
             case "nil":
                 return $arg;
             default:
@@ -403,27 +528,7 @@ class VirtualMachine {
     {
         $dst = $this->var($args[1])["value"];
         $src = $this->dataStack->pop();
-        // @phpstan-ignore-next-line
         $this->setVariable($dst, $src["type"], $src["value"]);
-    }
-
-    /**
-     * Check if both symbols are integers.
-     * 
-     * @param array<string, string> $src1
-     * @param array<string, string> $src2
-     * @return void
-     * @throws WrongOperandTypeException
-     */
-    private function checkInts($src1, $src2)
-    {
-        if ($src1["type"] !== "int") {
-            throw new WrongOperandTypeException($src1["type"]);
-        }
-
-        if ($src2["type"] !== "int") {
-            throw new WrongOperandTypeException($src2["type"]);
-        }
     }
 
     /**
@@ -513,11 +618,64 @@ class VirtualMachine {
         $src2 = $this->symb($args[3]);
 
         $divisor = $this->convertToInt($src2);
-        if ($divisor === 0) {
+
+        try {
+            $value = intdiv($this->convertToInt($src1), $divisor);
+        } catch (DivisionByZeroError $e) {
             throw new WrongOperandValueException("Division by zero");
         }
 
-        $value = intdiv($this->convertToInt($src1), $divisor);
+        $this->setVariable($dst, "int", strval($value));
+    }
+
+    /** 
+     * INT2CHAR <var> <symb>
+     * 
+     * Convert an integer to a character and store the result in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     * @throws WrongOperandValueException
+     */
+    private function INT2CHAR($args)
+    {
+        $dst = $this->var($args[1])["value"];
+        $src = $this->symb($args[2]);
+
+        $value = mb_chr($this->convertToInt($src));
+        if ($value == false) {
+            throw new WrongOperandValueException("Invalid character");
+        }
+        $this->setVariable($dst, "string", $value);
+    }
+
+    /** 
+     * STRI2INT <var> <symb1> <symb2>
+     * 
+     * Get a character from a string and store its unicode value in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     * @throws StringOperationException
+     * @throws WrongOperandTypeException
+     */
+    private function STRI2INT($args)
+    {
+        $dst = $this->var($args[1])["value"];
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+        if ($src1["type"] !== "string") {
+            throw new WrongOperandTypeException($src1["type"]);
+        }
+
+        $index = $this->convertToInt($src2);
+        if ($index < 0 || $index >= mb_strlen($src1["value"])) {
+            throw new StringOperationException("Index out of range");
+        }
+
+        $char = mb_substr($src1["value"], $index, 1);
+        $value = mb_ord($char);
         $this->setVariable($dst, "int", strval($value));
     }
 
@@ -573,6 +731,221 @@ class VirtualMachine {
     private function WRITE($args)
     {
         $this->stdout->writeString($this->symb($args[1])["value"]);
+    }
+
+    /**
+     * CONCAT <var> <symb1> <symb2>
+     * 
+     * Concatenate two strings and store the result in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     * @throws WrongOperandTypeException
+     */
+    private function CONCAT($args)
+    {
+        $dst = $this->var($args[1])["value"];
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+        if ($src1["type"] !== "string") {
+            throw new WrongOperandTypeException($src1["type"]);
+        }
+
+        if ($src2["type"] !== "string") {
+            throw new WrongOperandTypeException($src2["type"]);
+        }
+
+        $value = $src1["value"] . $src2["value"];
+        $this->setVariable($dst, "string", $value);
+    }
+
+    /**
+     * STRLEN <var> <symb>
+     * 
+     * Get the length of a string and store the result in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     * @throws WrongOperandTypeException
+     */
+    private function STRLEN($args)
+    {
+        $dst = $this->var($args[1])["value"];
+        $src = $this->symb($args[2]);
+
+        if ($src["type"] !== "string") {
+            throw new WrongOperandTypeException($src["type"]);
+        }
+
+        $value = mb_strlen($src["value"]);
+        $this->setVariable($dst, "int", strval($value));
+    }
+
+    /**
+     * GETCHAR <var> <symb1> <symb2>
+     * 
+     * Get a character from a string on a given index and store it in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     * @throws StringOperationException
+     * @throws WrongOperandTypeException
+     */
+    private function GETCHAR($args)
+    {
+        $dst = $this->var($args[1])["value"];
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+        if ($src1["type"] !== "string") {
+            throw new WrongOperandTypeException($src1["type"]);
+        }
+
+        $index = $this->convertToInt($src2);
+        if ($index < 0 || $index >= mb_strlen($src1["value"])) {
+            throw new StringOperationException("Index out of range");
+        }
+
+        $value = mb_substr($src1["value"], $index, 1);
+        $this->setVariable($dst, "string", $value);
+    }
+
+    /**
+     * SETCHAR <var> <symb1> <symb2>
+     * 
+     * Set a character in a string on a given index and store the result in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     * @throws StringOperationException
+     * @throws WrongOperandTypeException
+     */
+    private function SETCHAR($args)
+    {
+        $dst = $this->var($args[1]);
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+        if ($dst["type"] !== "string") {
+            throw new WrongOperandTypeException($dst["type"]);
+        }
+
+        if ($src1["type"] !== "string") {
+            throw new WrongOperandTypeException($src1["type"]);
+        }
+
+        $index = $this->convertToInt($src2);
+        if ($index < 0 || $index >= mb_strlen($dst["value"])) {
+            throw new StringOperationException("Index out of range");
+        }
+
+        $value = $src1["value"];
+        $value = mb_substr($dst["value"], 0, $index) . $value . mb_substr($dst["value"], $index + 1);
+        $this->setVariable($dst["value"], "string", $value);
+    }
+
+    /**
+     * TYPE <var> <symb>
+     * 
+     * Get the type of a variable and store it in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function TYPE($args)
+    {
+        $dst = $this->var($args[1])["value"];
+        $src = $this->symb($args[2]);
+
+        if ($src["type"] === "nil" && $src["value"] === "") { // Variable undefined
+            $value = "";
+        } else {
+            $value = $src["type"];
+        }
+
+        $this->setVariable($dst, "string", $value);
+    }
+
+    /**
+     * JUMP <label>
+     * 
+     * Jump to a label.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function JUMP($args)
+    {
+        $this->ip = $this->labels[$args[1]["value"]];
+    }
+
+    /**
+     * JUMPIFEQ <label> <symb1> <symb2>
+     * 
+     * Jump to a label if two symbols are equal.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function JUMPIFEQ($args)
+    {
+        $label = $args[1]["value"];
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+
+        if ($src1["type"] !== $src2["type"] && $src1["type"] !== "nil" && $src2["type"] !== "nil") { // Types not equal and none of them is nil
+            throw new WrongOperandTypeException($src1["type"] . " and " . $src2["type"] . " are not equal");
+        }
+
+        if ($src1["value"] === $src2["value" ] // Values are equal
+        || ($src1["type"] === "nil" && $src2["type"] === "nil" // OR either of them is nil
+        && $src1["value"] === "nil" && $src2["value"] === "nil")) { // And both are defined
+            $this->ip = $this->labels[$label];
+        }
+    }
+
+    /**
+     * JUMPIFNEQ <label> <symb1> <symb2>
+     * 
+     * Jump to a label if two symbols are not equal.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function JUMPIFNEQ($args)
+    {
+        $label = $args[1]["value"];
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+        if ($src1["type"] !== $src2["type"] && $src1["type"] !== "nil" && $src2["type"] !== "nil") { // Types not equal and none of them is nil
+            throw new WrongOperandTypeException($src1["type"] . " and " . $src2["type"] . " are not equal");
+        }
+
+        if ($src1["value"] !== $src2["value" ] // Values are not equal
+        || ($src1["type"] === "nil" && $src2["type"] === "nil" // OR either of them is nil
+        && $src1["value"] !== "nil" && $src2["value"] !== "nil")) { // And both are defined
+            $this->ip = $this->labels[$label];
+        }
+    }
+
+    /**
+     * EXIT <symb>
+     * 
+     * Exit the program with a given exit code.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function EXIT($args)
+    {
+        $exitCode = $this->convertToInt($this->symb($args[1]));
+        if ($exitCode < 0 || $exitCode > 9) {
+            throw new WrongOperandValueException("Invalid exit code: " . $exitCode);
+        }
+        exit($exitCode);
     }
 
     /**
