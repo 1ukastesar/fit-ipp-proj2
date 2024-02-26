@@ -107,6 +107,7 @@ class VirtualMachine {
      * Get variable from correct frame based on its name.
      * @param string $name
      * @return array<string, string>
+     * @throws UndefinedFrameException
      * @throws UndefinedVariableException
      * @throws WrongOperandValueException
      */
