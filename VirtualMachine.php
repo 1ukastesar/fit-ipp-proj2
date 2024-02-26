@@ -338,7 +338,7 @@ class VirtualMachine {
                 $value = $arg["value"];
                 while($lastPos < mb_strlen($value) && ($lastPos = mb_strpos($value, "\\", $lastPos)) !== false) { // Find all escape sequences
                     $ascii_value = intval(mb_substr($value, $lastPos + 1, 3)); // Get a corresponding ASCII value
-                    $escaped = mb_chr($ascii_value); // Find a correspondig character
+                    $escaped = mb_chr($ascii_value); // Find a corresponding character
                     $value = mb_substr($value, 0, $lastPos) . $escaped . mb_substr($value, $lastPos + 4); // Perform replace
                 }
                 return ["type" => $type, "value" => $value];
