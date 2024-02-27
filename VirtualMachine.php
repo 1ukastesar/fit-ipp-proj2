@@ -331,8 +331,6 @@ class VirtualMachine {
         switch($type) {
             case "var":
                 return $this->getVariable($arg["value"]);
-            case "int":
-            case "bool":
             case "string":
                 $lastPos = 0;
                 $value = $arg["value"];
@@ -342,6 +340,8 @@ class VirtualMachine {
                     $value = mb_substr($value, 0, $lastPos) . $escaped . mb_substr($value, $lastPos + 4); // Perform replace
                 }
                 return ["type" => $type, "value" => $value];
+            case "int":
+            case "bool":
             case "nil":
                 return $arg;
             default:
@@ -890,7 +890,7 @@ class VirtualMachine {
      */
     private function JUMPIFEQ($args)
     {
-        $label = $args[1]["value"];
+        $label = $args[1]["value"]; // TODO label type check
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
 
