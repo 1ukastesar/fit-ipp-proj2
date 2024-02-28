@@ -1,0 +1,1 @@
+One of the caveats was how to represent `undefined` variable value. I first tried to represent it as a `nil@<nothing>`, but it turned out it can be conflicting with normal nil type in some cases, so I then used special type `undefined@<nothing>` instead.

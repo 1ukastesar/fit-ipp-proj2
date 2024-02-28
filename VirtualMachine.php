@@ -225,12 +225,13 @@ class VirtualMachine {
      * 
      * Get variable from correct frame based on its name.
      * @param string $name
+     * @param bool $canBeUndefined
      * @return array<string, string>
      * @throws UndefinedFrameException
      * @throws UndefinedVariableException
      * @throws WrongOperandValueException
      */
-    private function getVariable($name)
+    private function getVariable($name, $canBeUndefined = false)
     {
         $var = explode("@", $name, 2); // Max 2 parts
         $frame = $var[0];
@@ -262,8 +263,12 @@ class VirtualMachine {
             default:
                 throw new WrongOperandValueException("Invalid frame: " . $frame);
         }
-        if ($var["type"] === "nil" && $var["value"] === "") {
-            throw new UndefinedValueException($name);
+        if ($var["type"] === "undefined") {
+            if (!$canBeUndefined) {
+                throw new UndefinedValueException($name);
+            } else {
+                return ["type" => "undefined", "value" => ""];
+            }
         }
         return $var;
     }
@@ -475,7 +480,7 @@ class VirtualMachine {
                 if (array_key_exists($name, $this->globalFrame)) {
                     throw new SemanticError($name);
                 }
-                $this->globalFrame[$name] = ["type" => "nil", "value" => ""];
+                $this->globalFrame[$name] = ["type" => "undefined", "value" => ""];
                 break;
             case "LF":
                 // Undefined frame is handled automatically by stack itself
@@ -487,7 +492,7 @@ class VirtualMachine {
                 }
                 // TODO rewrite this to the more effective variant (use reference instead of copy)
                 $lf = $this->frameStack->pop();
-                $lf[$name] = ["type" => "nil", "value" => ""];
+                $lf[$name] = ["type" => "undefined", "value" => ""];
                 $this->frameStack->push($lf);
                 // $this->frameStack->top()[$name] = ["type" => "nil", "value" => ""];
                 break;
@@ -912,9 +917,13 @@ class VirtualMachine {
     {
         $this->checkArgCount($args, 2);
         $dst = $this->var($args[1])["value"];
-        $src = $this->symb($args[2]);
+        if ($args[2]["type"] === "var") {
+            $src = $this->getVariable($args[2]["value"], true);
+        } else {
+            $src = $this->symb($args[2]);
+        }
 
-        if ($src["type"] === "nil" && $src["value"] === "") { // Variable undefined
+        if ($src["type"] === "undefined") { // Variable undefined
             $value = "";
         } else {
             $value = $src["type"];
