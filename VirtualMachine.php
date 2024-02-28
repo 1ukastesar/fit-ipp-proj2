@@ -368,6 +368,19 @@ class VirtualMachine {
         return $arg;
     }
 
+    /**
+     * Check if argument count is correct.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @param int $count
+     * @return void
+     */
+    private function checkArgCount($args, $count) {
+        if (count($args) !== $count) {
+            throw new InvalidStructureException("Invalid argument count: " . count($args) . " instead of " . $count);
+        }
+    }
+
     /** 
      * MOVE <var> <symb>
      * 
@@ -378,6 +391,8 @@ class VirtualMachine {
      */
     private function MOVE($args)
     {
+        $this->checkArgCount($args, 2);
+
         $dst = $this->var($args[1])["value"];
         $src = $this->symb($args[2]);
 
@@ -441,6 +456,8 @@ class VirtualMachine {
      */
     private function DEFVAR($args)
     {
+        $this->checkArgCount($args, 1);
+
         $var = explode("@", $this->var($args[1])["value"], 2); // Max 2 parts
         $frame = $var[0];
         $name = $var[1];
@@ -515,6 +532,7 @@ class VirtualMachine {
      */
     private function PUSHS($args)
     {
+        $this->checkArgCount($args, 1);
         $this->dataStack->push($this->symb($args[1]));
     }
 
@@ -528,6 +546,7 @@ class VirtualMachine {
      */
     private function POPS($args)
     {
+        $this->checkArgCount($args, 1);
         $dst = $this->var($args[1])["value"];
         $src = $this->dataStack->pop();
         $this->setVariable($dst, $src["type"], $src["value"]);
@@ -560,6 +579,7 @@ class VirtualMachine {
      */
     private function ADD($args)
     {
+        $this->checkArgCount($args, 3);
         $dst = $this->var($args[1])["value"];
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
@@ -578,6 +598,7 @@ class VirtualMachine {
      */
     private function SUB($args)
     {
+        $this->checkArgCount($args, 3);
         $dst = $this->var($args[1])["value"];
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
@@ -596,6 +617,7 @@ class VirtualMachine {
      */
     private function MUL($args)
     {
+        $this->checkArgCount($args, 3);
         $dst = $this->var($args[1])["value"];
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
@@ -615,6 +637,7 @@ class VirtualMachine {
      */
     private function IDIV($args)
     {
+        $this->checkArgCount($args, 3);
         $dst = $this->var($args[1])["value"];
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
@@ -641,6 +664,7 @@ class VirtualMachine {
      */
     private function INT2CHAR($args)
     {
+        $this->checkArgCount($args, 2);
         $dst = $this->var($args[1])["value"];
         $src = $this->symb($args[2]);
 
@@ -663,6 +687,7 @@ class VirtualMachine {
      */
     private function STRI2INT($args)
     {
+        $this->checkArgCount($args, 3);
         $dst = $this->var($args[1])["value"];
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
@@ -693,12 +718,9 @@ class VirtualMachine {
      */
     private function READ($args)
     {
-        if ($args[1]["type"] !== "var") {
-            throw new WrongOperandTypeException($args[1]["type"]);
-        }
-
-        $dstName = $args[1]["value"];
-        $type = $args[2]["value"];
+        $this->checkArgCount($args, 2);
+        $dst = $this->var($args[1])["value"];
+        $type = $args[2]["value"]; // TODO check type of "type"
 
         switch($type) {
             case "int":
@@ -719,7 +741,7 @@ class VirtualMachine {
             $value = "nil";
         }
 
-        $this->setVariable($dstName, $type, strval($value));
+        $this->setVariable($dst, $type, strval($value));
     }
 
     /**
@@ -746,6 +768,7 @@ class VirtualMachine {
      */
     private function CONCAT($args)
     {
+        $this->checkArgCount($args, 3);
         $dst = $this->var($args[1])["value"];
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
@@ -773,6 +796,7 @@ class VirtualMachine {
      */
     private function STRLEN($args)
     {
+        $this->checkArgCount($args, 2);
         $dst = $this->var($args[1])["value"];
         $src = $this->symb($args[2]);
 
@@ -796,6 +820,7 @@ class VirtualMachine {
      */
     private function GETCHAR($args)
     {
+        $this->checkArgCount($args, 3);
         $dst = $this->var($args[1])["value"];
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
@@ -825,6 +850,7 @@ class VirtualMachine {
      */
     private function SETCHAR($args)
     {
+        $this->checkArgCount($args, 3);
         $dst = $this->var($args[1]);
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
@@ -857,6 +883,7 @@ class VirtualMachine {
      */
     private function TYPE($args)
     {
+        $this->checkArgCount($args, 2);
         $dst = $this->var($args[1])["value"];
         $src = $this->symb($args[2]);
 
@@ -943,6 +970,7 @@ class VirtualMachine {
      */
     private function EXIT($args)
     {
+        $this->checkArgCount($args, 1);
         $exitCode = $this->convertToInt($this->symb($args[1]));
         if ($exitCode < 0 || $exitCode > 9) {
             throw new WrongOperandValueException("Invalid exit code: " . $exitCode);
@@ -961,6 +989,7 @@ class VirtualMachine {
      */
     private function DPRINT($args)
     {
+        $this->checkArgCount($args, 1);
         $this->stderr->writeString($this->symb($args[1])["value"] . PHP_EOL);
     }
 
