@@ -786,7 +786,24 @@ class VirtualMachine {
      */
     private function WRITE($args)
     {
-        $this->stdout->writeString($this->symb($args[1])["value"]);
+        $this->checkArgCount($args, 1);
+        $src = $this->symb($args[1]);
+        switch ($src["type"]) {
+            case "int":
+                $this->stdout->writeInt($this->convertToInt($src));
+                break;
+            case "bool":
+                $this->stdout->writeBool($src["value"] ? true : false);
+                break;
+            case "nil":
+                $this->stdout->writeString("");
+                break;
+            case "string":
+                $this->stdout->writeString($src["value"]);
+                break;
+            default:
+                throw new WrongOperandTypeException($src["type"]);
+        }
     }
 
     /**
