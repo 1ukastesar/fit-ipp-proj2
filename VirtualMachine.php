@@ -330,12 +330,12 @@ class VirtualMachine {
     private function symb($arg)
     {
         $type = $arg["type"];
+        $value = $arg["value"];
         switch($type) {
             case "var":
-                return $this->getVariable($arg["value"]);
+                return $this->getVariable($value);
             case "string":
                 $lastPos = 0;
-                $value = $arg["value"];
                 while($lastPos < mb_strlen($value) && ($lastPos = mb_strpos($value, "\\", $lastPos)) !== false) { // Find all escape sequences
                     $ascii_value = intval(mb_substr($value, $lastPos + 1, 3)); // Get a corresponding ASCII value
                     $escaped = mb_chr($ascii_value); // Find a corresponding character
@@ -343,6 +343,15 @@ class VirtualMachine {
                 }
                 return ["type" => $type, "value" => $value];
             case "int":
+                $int = filter_var(
+                    $value, 
+                    FILTER_VALIDATE_INT, 
+                    FILTER_NULL_ON_FAILURE | FILTER_FLAG_ALLOW_OCTAL | FILTER_FLAG_ALLOW_HEX
+                );
+                if ($int === null) {
+                    throw new InvalidStructureException("Invalid argument value: ". $value);
+                }
+                return ["type" => $type, "value" => strval($int)];
             case "bool":
             case "nil":
                 return $arg;
