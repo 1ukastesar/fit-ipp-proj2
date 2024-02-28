@@ -131,24 +131,23 @@ class VirtualMachine {
                 $this->IDIV($args);
                 break;
             case "LT":
-                // $this->LT($args);
-                // break;
+                $this->LT($args);
+                break;
             case "GT":
-                // $this->GT($args);
-                // break;
+                $this->GT($args);
+                break;
             case "EQ":
-                // $this->EQ($args);
-                // break;
+                $this->EQ($args);
+                break;
             case "AND":
-                // $this->AND($args);
-                // break;
+                $this->AND($args);
+                break;
             case "OR":
-                // $this->OR($args);
-                // break;
+                $this->OR($args);
+                break;
             case "NOT":
-                // $this->NOT($args);
-                // break;
-                throw new NotImplementedException("Not implemented yet: " . $opcode);
+                $this->NOT($args);
+                break;
             case "INT2CHAR":
                 $this->INT2CHAR($args);
                 break;
@@ -683,6 +682,171 @@ class VirtualMachine {
         }
 
         $this->setVariable($dst, "int", strval($value));
+    }
+
+    /** 
+     * Check if two symbols are comparable.
+     * 
+     * @param array<string, string> $arg1
+     * @param array<string, string> $arg2
+     * @return void
+     */
+    private function checkComparability($arg1, $arg2) {
+        if (!in_array($arg1["type"], array("int", "bool", "string"))) { // Only int bool string can be compared
+            throw new WrongOperandTypeException($arg1["type"]);
+        }
+
+        if ($arg1["type"] !== $arg2["type"]) {
+            throw new WrongOperandTypeException($arg1["type"] . " and " . $arg2["type"] . " are not equal");
+        }
+    }
+
+    /**
+     * LT <var> <symb1> <symb2>
+     * 
+     * Compare two values of the same type and store the result in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     * @throws WrongOperandTypeException
+     */
+    private function LT($args)
+    {
+        $this->checkArgCount($args, 3);
+        $dst = $this->var($args[1])["value"];
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+        $this->checkComparability($src1, $src2);
+
+        $value = $src1["value"] < $src2["value"] ? "true" : "false";
+        $this->setVariable($dst, "bool", $value);
+    }
+
+    /**
+     * GT <var> <symb1> <symb2>
+     * 
+     * Compare two values of the same type and store the result in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     * @throws WrongOperandTypeException
+     */
+    private function GT($args)
+    {
+        $this->checkArgCount($args, 3);
+        $dst = $this->var($args[1])["value"];
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+        $this->checkComparability($src1, $src2);
+
+        $value = $src1["value"] > $src2["value"] ? "true" : "false";
+        $this->setVariable($dst, "bool", $value);
+    }
+
+    /**
+     * EQ <var> <symb1> <symb2>
+     * 
+     * Compare two values of the same type and store the result in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     * @throws WrongOperandTypeException
+     */
+    private function EQ($args)
+    {
+        $this->checkArgCount($args, 3);
+        $dst = $this->var($args[1])["value"];
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+        if ($src1["type"] === "nil" || $src2["type"] === "nil") {
+            $value = "true";
+        } else {
+            $this->checkComparability($src1, $src2);
+            $value = $src1["value"] === $src2["value"] ? "true" : "false";
+        }
+        $this->setVariable($dst, "bool", $value);
+    }
+
+    /**
+     * Convert a symbol to a boolean.
+     * 
+     * @param array<string, string> $arg
+     * @return bool
+     * @throws WrongOperandTypeException
+     */
+    private function convertToBool($arg)
+    {
+        if ($arg["type"] !== "bool") {
+            throw new WrongOperandTypeException($arg["type"]);
+        }
+        return $arg["value"] === "true";
+    }
+
+    /**
+     * AND <var> <symb1> <symb2>
+     * 
+     * Perform a logical AND operation and store the result in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function AND($args)
+    {
+        $this->checkArgCount($args, 3);
+        $dst = $this->var($args[1])["value"];
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+        $bool1 = $this->convertToBool($src1);
+        $bool2 = $this->convertToBool($src2);
+
+        $value = ($bool1 && $bool2) ? "true" : "false";
+        $this->setVariable($dst, "bool", $value);
+    }
+
+    /**
+     * OR <var> <symb1> <symb2>
+     * 
+     * Perform a logical OR operation and store the result in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function OR($args)
+    {
+        $this->checkArgCount($args, 3);
+        $dst = $this->var($args[1])["value"];
+        $src1 = $this->symb($args[2]);
+        $src2 = $this->symb($args[3]);
+
+        $bool1 = $this->convertToBool($src1);
+        $bool2 = $this->convertToBool($src2);
+
+        $value = ($bool1 || $bool2) ? "true" : "false";
+        $this->setVariable($dst, "bool", $value);
+    }
+
+    /**
+     * NOT <var> <symb>
+     * 
+     * Perform a logical NOT operation and store the result in a variable.
+     * 
+     * @param array<int, array<string, string>> $args
+     * @return void
+     */
+    private function NOT($args)
+    {
+        $this->checkArgCount($args, 2);
+        $dst = $this->var($args[1])["value"];
+        $src = $this->symb($args[2]);
+
+        $bool = $this->convertToBool($src);
+
+        $value = $bool ? "false" : "true";
+        $this->setVariable($dst, "bool", $value);
     }
 
     /** 
