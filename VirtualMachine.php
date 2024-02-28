@@ -497,11 +497,27 @@ class VirtualMachine {
                 if (array_key_exists($name, $this->temporaryFrame)) {
                     throw new SemanticError($name);
                 }
-                $this->temporaryFrame[$name] = ["type" => "nil", "value" => ""];
+                $this->temporaryFrame[$name] = ["type" => "undefined", "value" => ""];
                 break;
             default:
                 throw new WrongOperandValueException("Invalid frame: " . $frame);
         }
+    }
+
+    /**
+     * Check if arg is of type label and exists.
+     * 
+     * @param array<string, string> $arg
+     * @return string
+     * @throws SemanticError
+     * @throws WrongOperandTypeException
+     */
+    private function label($arg) {
+        if ($arg["type"] !== "label")
+            throw new WrongOperandTypeException($arg["type"]);
+        if (!array_key_exists($arg["value"], $this->labels))
+            throw new SemanticError("Undefined label: ". $arg["value"]);
+        return $arg["value"];
     }
 
     /** 
@@ -514,8 +530,10 @@ class VirtualMachine {
      */
     private function CALL($args)
     {
+        $this->checkArgCount($args, 1);
+        $label = $this->label($args[1]);
         $this->callStack->push($this->ip);
-        $this->ip = $this->labels[$args[1]["value"]];
+        $this->ip = $this->labels[$label];
     }
 
     /** 
@@ -915,7 +933,9 @@ class VirtualMachine {
      */
     private function JUMP($args)
     {
-        $this->ip = $this->labels[$args[1]["value"]];
+        $this->checkArgCount($args, 1);
+        $label = $this->label($args[1]);
+        $this->ip = $this->labels[$label];
     }
 
     /**
@@ -928,10 +948,10 @@ class VirtualMachine {
      */
     private function JUMPIFEQ($args)
     {
-        $label = $args[1]["value"]; // TODO label type check
+        $this->checkArgCount($args, 3);
+        $label = $this->label($args[1]);
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
-
 
         if ($src1["type"] !== $src2["type"] && $src1["type"] !== "nil" && $src2["type"] !== "nil") { // Types not equal and none of them is nil
             throw new WrongOperandTypeException($src1["type"] . " and " . $src2["type"] . " are not equal");
@@ -954,7 +974,8 @@ class VirtualMachine {
      */
     private function JUMPIFNEQ($args)
     {
-        $label = $args[1]["value"];
+        $this->checkArgCount($args, 3);
+        $label = $this->label($args[1]);
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
 
