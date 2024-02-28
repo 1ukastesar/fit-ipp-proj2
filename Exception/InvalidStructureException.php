@@ -11,6 +11,6 @@ class InvalidStructureException extends IPPException
 {
     public function __construct(string $message, ?Throwable $previous = null)
     {
-        parent::__construct("Invalid source XML structure: ". $message, ReturnCode::INVALID_SOURCE_STRUCTURE, $previous, false);
+        parent::__construct("Invalid source XML structure: ". $message, ReturnCode::INVALID_SOURCE_STRUCTURE, $previous);
     }
 }

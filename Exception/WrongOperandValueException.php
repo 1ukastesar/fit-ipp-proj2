@@ -11,6 +11,6 @@ class WrongOperandValueException extends IPPException
 {
     public function __construct(string $value, ?Throwable $previous = null)
     {
-        parent::__construct("Wrong operand value: ". $value, ReturnCode::OPERAND_VALUE_ERROR, $previous, false);
+        parent::__construct("Wrong operand value: ". $value, ReturnCode::OPERAND_VALUE_ERROR, $previous);
     }
 }

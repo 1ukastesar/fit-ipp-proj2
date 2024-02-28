@@ -11,6 +11,6 @@ class UndefinedValueException extends IPPException
 {
     public function __construct(string $value, ?Throwable $previous = null)
     {
-        parent::__construct("Undefined value: ". $value, ReturnCode::VALUE_ERROR, $previous, false);
+        parent::__construct("Undefined value: ". $value, ReturnCode::VALUE_ERROR, $previous);
     }
 }
