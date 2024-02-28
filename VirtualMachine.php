@@ -347,14 +347,7 @@ class VirtualMachine {
                 }
                 return ["type" => $type, "value" => $value];
             case "int":
-                $int = filter_var(
-                    $value, 
-                    FILTER_VALIDATE_INT, 
-                    FILTER_NULL_ON_FAILURE | FILTER_FLAG_ALLOW_OCTAL | FILTER_FLAG_ALLOW_HEX
-                );
-                if ($int === null) {
-                    throw new InvalidStructureException("Invalid argument value: ". $value);
-                }
+                $int = $this->convertToInt($arg);
                 return ["type" => $type, "value" => strval($int)];
             case "bool":
             case "nil":
@@ -547,9 +540,13 @@ class VirtualMachine {
      * 
      * @param array<int, array<string, string>> $args
      * @return void
+     * @throws UndefinedValueException
      */
     private function RETURN($args)
     {
+        if ($this->callStack->isEmpty()) {
+            throw new UndefinedValueException("Return from empty call stack");
+        }
         $this->ip = $this->callStack->pop();
     }
 
@@ -588,6 +585,7 @@ class VirtualMachine {
      * 
      * @param array<string, string> $arg
      * @return int
+     * @throws InvalidStructureException
      * @throws WrongOperandTypeException
      */
     private function convertToInt($arg)
@@ -596,8 +594,18 @@ class VirtualMachine {
             throw new WrongOperandTypeException($arg["type"]);
         }
 
-        // TODO type checks
-        return intval($arg["value"]);
+        $value = $arg["value"];
+
+        $int = filter_var(
+            $value, 
+            FILTER_VALIDATE_INT, 
+            FILTER_NULL_ON_FAILURE | FILTER_FLAG_ALLOW_OCTAL | FILTER_FLAG_ALLOW_HEX
+        );
+        if ($int === null) {
+            throw new InvalidStructureException("Invalid argument value: ". $value);
+        }
+
+        return intval($value);
     }
 
     /** 
@@ -746,13 +754,28 @@ class VirtualMachine {
     }
 
     /**
+     * Check if two symbols are equal.
+     * 
+     * @param array<string, string> $arg1
+     * @param array<string, string> $arg2
+     * @return bool
+     * @throws WrongOperandTypeException
+     */
+    private function areEqual($arg1, $arg2) {
+        if ($arg1["type"] === "nil" || $arg2["type"] === "nil") {
+            return $arg1["type"] === $arg2["type"];
+        }
+        $this->checkComparability($arg1, $arg2);
+        return $arg1["value"] === $arg2["value"];
+    }
+
+    /**
      * EQ <var> <symb1> <symb2>
      * 
      * Compare two values of the same type and store the result in a variable.
      * 
      * @param array<int, array<string, string>> $args
      * @return void
-     * @throws WrongOperandTypeException
      */
     private function EQ($args)
     {
@@ -761,12 +784,7 @@ class VirtualMachine {
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
 
-        if ($src1["type"] === "nil" || $src2["type"] === "nil") {
-            $value = "true";
-        } else {
-            $this->checkComparability($src1, $src2);
-            $value = $src1["value"] === $src2["value"] ? "true" : "false";
-        }
+        $value = $this->areEqual($src1, $src2) ? "true" : "false";
         $this->setVariable($dst, "bool", $value);
     }
 
@@ -782,7 +800,12 @@ class VirtualMachine {
         if ($arg["type"] !== "bool") {
             throw new WrongOperandTypeException($arg["type"]);
         }
-        return $arg["value"] === "true";
+        // if ($arg["value"] === "true" || $arg["value"] === "1") {
+        //     return true;
+        // } else {
+        //     return false;
+        // }
+        return $arg["value"] === "true" || $arg["value"] === "1";
     }
 
     /**
@@ -866,7 +889,7 @@ class VirtualMachine {
 
         $value = mb_chr($this->convertToInt($src));
         if ($value == false) {
-            throw new WrongOperandValueException("Invalid character");
+            throw new StringOperationException("Invalid character");
         }
         $this->setVariable($dst, "string", $value);
     }
@@ -916,7 +939,10 @@ class VirtualMachine {
     {
         $this->checkArgCount($args, 2);
         $dst = $this->var($args[1])["value"];
-        $type = $args[2]["value"]; // TODO check type of "type"
+        if ($args[2]["type"] !== "type") {
+            throw new WrongOperandTypeException($args[2]["type"]);
+        }
+        $type = $args[2]["value"];
 
         switch($type) {
             case "int":
@@ -957,7 +983,7 @@ class VirtualMachine {
                 $this->stdout->writeInt($this->convertToInt($src));
                 break;
             case "bool":
-                $this->stdout->writeBool($src["value"] ? true : false);
+                $this->stdout->writeBool($this->convertToBool($src));
                 break;
             case "nil":
                 $this->stdout->writeString("");
@@ -1064,7 +1090,7 @@ class VirtualMachine {
     private function SETCHAR($args)
     {
         $this->checkArgCount($args, 3);
-        $dst = $this->var($args[1]);
+        $dst = $this->getVariable($args[1]["value"]);
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
 
@@ -1072,18 +1098,22 @@ class VirtualMachine {
             throw new WrongOperandTypeException($dst["type"]);
         }
 
-        if ($src1["type"] !== "string") {
+        if ($src2["type"] !== "string") {
             throw new WrongOperandTypeException($src1["type"]);
         }
 
-        $index = $this->convertToInt($src2);
+        $index = $this->convertToInt($src1);
         if ($index < 0 || $index >= mb_strlen($dst["value"])) {
             throw new StringOperationException("Index out of range");
         }
 
-        $value = $src1["value"];
+        if (!mb_strlen($src2["value"])) {
+            throw new StringOperationException("String is empty");
+        }
+
+        $value = $src2["value"][0];
         $value = mb_substr($dst["value"], 0, $index) . $value . mb_substr($dst["value"], $index + 1);
-        $this->setVariable($dst["value"], "string", $value);
+        $this->setVariable($args[1]["value"], "string", $value);
     }
 
     /**
@@ -1143,13 +1173,7 @@ class VirtualMachine {
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
 
-        if ($src1["type"] !== $src2["type"] && $src1["type"] !== "nil" && $src2["type"] !== "nil") { // Types not equal and none of them is nil
-            throw new WrongOperandTypeException($src1["type"] . " and " . $src2["type"] . " are not equal");
-        }
-
-        if ($src1["value"] === $src2["value" ] // Values are equal
-        || ($src1["type"] === "nil" && $src2["type"] === "nil" // OR either of them is nil
-        && $src1["value"] === "nil" && $src2["value"] === "nil")) { // And both are defined
+        if ($this->areEqual($src1, $src2)) {
             $this->ip = $this->labels[$label];
         }
     }
@@ -1169,13 +1193,7 @@ class VirtualMachine {
         $src1 = $this->symb($args[2]);
         $src2 = $this->symb($args[3]);
 
-        if ($src1["type"] !== $src2["type"] && $src1["type"] !== "nil" && $src2["type"] !== "nil") { // Types not equal and none of them is nil
-            throw new WrongOperandTypeException($src1["type"] . " and " . $src2["type"] . " are not equal");
-        }
-
-        if ($src1["value"] !== $src2["value" ] // Values are not equal
-        || ($src1["type"] === "nil" && $src2["type"] === "nil" // OR either of them is nil
-        && $src1["value"] !== "nil" && $src2["value"] !== "nil")) { // And both are defined
+        if (!$this->areEqual($src1, $src2)) {
             $this->ip = $this->labels[$label];
         }
     }

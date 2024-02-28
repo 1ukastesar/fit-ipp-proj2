@@ -95,12 +95,16 @@ class Interpreter extends AbstractInterpreter
                         throw new InvalidStructureException("Duplicate argument number: " . $argOrder);
                     }
 
-                    if (empty($argNode->nodeValue) && $argNode->nodeValue !== "0") {
-                        throw new InvalidStructureException("Invalid or missing argument value: " . $argNode->nodeValue);
-                    }
                     $arg = [];
                     $arg["type"] = $argNode->getAttribute("type");
-                    $arg["value"] = trim($argNode->nodeValue);
+                    if (empty($arg["type"])) {
+                        throw new InvalidStructureException("Missing argument type");
+                    }
+
+                    if (empty($argNode->nodeValue) && $argNode->nodeValue !== "0" && $arg["type"] !== "string") {
+                        throw new InvalidStructureException("Invalid or missing argument value: " . $argNode->nodeValue);
+                    }
+                    $arg["value"] = trim($argNode->nodeValue ?? "");
                     $args[$argOrder] = $arg;
                 }
                 ksort($args);
