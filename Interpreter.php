@@ -76,6 +76,7 @@ class Interpreter extends AbstractInterpreter
 
                 // Loop through all arguments and store them in an array
                 $args = [];
+                $expectedOrder = 1;
                 foreach ($instruction->childNodes as $argNode) {
                     if (!$argNode instanceof DOMElement) {
                         continue;
@@ -86,6 +87,10 @@ class Interpreter extends AbstractInterpreter
                     }
 
                     $argOrder = intval($matches[2]);
+                    // if ($argOrder !== $expectedOrder++) {
+                    //     throw new InvalidStructureException("Invalid argument order: " . $argOrder);
+                    // }
+
                     if (isset($args[$argOrder])) {
                         throw new InvalidStructureException("Duplicate argument number: " . $argOrder);
                     }
@@ -99,6 +104,10 @@ class Interpreter extends AbstractInterpreter
                     $args[$argOrder] = $arg;
                 }
                 ksort($args);
+                // $args = array_combine(range(1, count($args)), array_values($args));
+                if (!empty($args) && array_keys($args) !== range(1, count($args))) {
+                    throw new InvalidStructureException("Invalid argument order");
+                }
                 $instructions[$order] = new Instruction($opcode, $args);
         }
 
