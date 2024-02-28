@@ -15,6 +15,7 @@ use IPP\Core\Interface\OutputWriter;
 use IPP\Student\Exception\StringOperationException;
 
 use DivisionByZeroError;
+use IPP\Student\Exception\InvalidStructureException;
 
 /**
  * VirtualMachine
@@ -196,7 +197,8 @@ class VirtualMachine {
                 $this->BREAK($args);
                 break;
             default:
-                throw new NotImplementedException("Not implemented yet: " . $opcode);
+                // throw new NotImplementedException("Not implemented yet: " . $opcode);
+                throw new InvalidStructureException("Invalid opcode: " . $opcode);
         }
     }
 
