@@ -40,7 +40,7 @@ class VirtualMachine {
     private $ip;
     /** @var Stack<int> */
     private $callStack;
-    /** @var FrameStack<array<string, array<string, string>>> */
+    /** @var FrameStack */
     private $frameStack;
     /** @var Stack<array<string, string>> */
     private $dataStack;
