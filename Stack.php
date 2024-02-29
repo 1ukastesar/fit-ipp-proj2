@@ -3,7 +3,6 @@
 namespace IPP\Student;
 
 use IPP\Student\Exception\EmptyStackException;
-use IPP\Student\Exception\UndefinedFrameException;
 
 /**
  * Stack

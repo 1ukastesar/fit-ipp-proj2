@@ -3,19 +3,20 @@
 namespace IPP\Student;
 
 use IPP\Core\Exception\NotImplementedException;
+use IPP\Core\Interface\InputReader;
+use IPP\Core\Interface\OutputWriter;
+
+use IPP\Student\Exception\EmptyStackException;
+use IPP\Student\Exception\InvalidStructureException;
 use IPP\Student\Exception\SemanticError;
+use IPP\Student\Exception\StringOperationException;
 use IPP\Student\Exception\UndefinedFrameException;
 use IPP\Student\Exception\UndefinedVariableException;
 use IPP\Student\Exception\UndefinedValueException;
 use IPP\Student\Exception\WrongOperandTypeException;
 use IPP\Student\Exception\WrongOperandValueException;
 
-use IPP\Core\Interface\InputReader;
-use IPP\Core\Interface\OutputWriter;
-use IPP\Student\Exception\StringOperationException;
-
 use DivisionByZeroError;
-use IPP\Student\Exception\InvalidStructureException;
 
 /**
  * VirtualMachine
@@ -39,7 +40,7 @@ class VirtualMachine {
     private $ip;
     /** @var Stack<int> */
     private $callStack;
-    /** @var Stack<array<string, array<string, string>>> */
+    /** @var FrameStack<array<string, array<string, string>>> */
     private $frameStack;
     /** @var Stack<array<string, string>> */
     private $dataStack;
@@ -69,7 +70,7 @@ class VirtualMachine {
 
         $this->ip = intval(array_key_first($instructions));
         $this->callStack = new Stack();
-        $this->frameStack = new Stack();
+        $this->frameStack = new FrameStack();
         $this->dataStack = new Stack();
         $this->globalFrame = [];
         $this->temporaryFrame = null;
