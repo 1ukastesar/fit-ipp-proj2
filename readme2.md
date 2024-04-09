@@ -18,5 +18,12 @@
     - `WrongOperandTypeException` - any of the operands are not of the correct type
     - `WrongOperandValueException` - incorrect value is passed to the instruction
 
+### Instructions
+- Interpretation starts by calling `Interpret::execute()` which calls several other methods to do the job. The first one is `load()` which loads the XML file and parses it. The second one is `resolve_labels()` which resolves all labels in the code. The last one is `interpret()` which iterates over the instructions and executes them.
+- The implementation is very same as in the 1st project, instructions along with their parameters are loaded from the XML along with some type checks. Each instruction is represented by an instance of `Instruction` class and holds its own arguments and opcode. All instructions are stored in the associative array along with their order, the array is then sorted by the order and the order key is removed as it is no longer needed (PHP implicitly reindexes the array). The `load()` method is responsible for all of the above.
+- Then, the array is iterated to find any labels and their positions in the array. This is done for easier implementation of all types of jumps (the interpret know where to jump when it encounters a jump instruction). This is done in the `resolve_labels()` method.
+- The last method is `interpret()` which creates a separate instance of `VirtualMachine` class, which does the interpretation itself. This is done in order to separate the interpretation logic from the instruction loading and parsing.
+- `VirtualMachine` class stores all the necessary stuff: framestack, callstack, current instruction pointer (IP) and several other attributes to ensure full and correct environment for interpretation. The process starts by calling `run()` method that contains just a simple loop which iterates over the instructions and calls the appropriate method for each instruction. These methods are named after the instruction opcodes and are implemented in the `VirtualMachine` class.
+
 ## Design decicions and caveats
 - One of the caveats was how to represent `undefined` variable value. At first sight that `nil@<nothing>` could be used, but it turned out it could conflict with default nil type in some cases, so `undefined@<nothing>` is now used instead.
