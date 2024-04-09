@@ -376,6 +376,70 @@ class VirtualMachine {
     }
 
     /**
+     * Check if arg is of type label and exists.
+     * 
+     * @param array<string, string> $arg
+     * @return string
+     * @throws SemanticError
+     * @throws WrongOperandTypeException
+     */
+    private function label($arg) {
+        if ($arg["type"] !== "label")
+            throw new WrongOperandTypeException($arg["type"]);
+        if (!array_key_exists($arg["value"], $this->labels))
+            throw new SemanticError("Undefined label: ". $arg["value"]);
+        return $arg["value"];
+    }
+
+    /**
+     * Convert a symbol to an integer.
+     * 
+     * @param array<string, string> $arg
+     * @return int
+     * @throws InvalidStructureException
+     * @throws WrongOperandTypeException
+     */
+    private function convertToInt($arg)
+    {
+        if ($arg["type"] !== "int") {
+            throw new WrongOperandTypeException($arg["type"]);
+        }
+
+        $value = $arg["value"];
+
+        $int = filter_var(
+            $value,
+            FILTER_VALIDATE_INT,
+            FILTER_NULL_ON_FAILURE | FILTER_FLAG_ALLOW_OCTAL | FILTER_FLAG_ALLOW_HEX
+        );
+        if ($int === null) {
+            throw new InvalidStructureException("Invalid argument value: ". $value);
+        }
+
+        return intval($value);
+    }
+
+    /**
+     * Convert a symbol to a boolean.
+     * 
+     * @param array<string, string> $arg
+     * @return bool
+     * @throws WrongOperandTypeException
+     */
+    private function convertToBool($arg)
+    {
+        if ($arg["type"] !== "bool") {
+            throw new WrongOperandTypeException($arg["type"]);
+        }
+        // if ($arg["value"] === "true" || $arg["value"] === "1") {
+        //     return true;
+        // } else {
+        //     return false;
+        // }
+        return $arg["value"] === "true" || $arg["value"] === "1";
+    }
+
+    /**
      * Check if argument count is correct.
      * 
      * @param array<int, array<string, string>> $args
@@ -386,6 +450,39 @@ class VirtualMachine {
         if (count($args) !== $count) {
             throw new InvalidStructureException("Invalid argument count: " . count($args) . " instead of " . $count);
         }
+    }
+
+    /** 
+     * Check if two symbols are comparable.
+     * 
+     * @param array<string, string> $arg1
+     * @param array<string, string> $arg2
+     * @return void
+     */
+    private function checkComparability($arg1, $arg2) {
+        if (!in_array($arg1["type"], array("int", "bool", "string"))) { // Only int bool string can be compared
+            throw new WrongOperandTypeException($arg1["type"]);
+        }
+
+        if ($arg1["type"] !== $arg2["type"]) {
+            throw new WrongOperandTypeException($arg1["type"] . " and " . $arg2["type"] . " are not equal");
+        }
+    }
+
+    /**
+     * Check if two symbols are equal.
+     * 
+     * @param array<string, string> $arg1
+     * @param array<string, string> $arg2
+     * @return bool
+     * @throws WrongOperandTypeException
+     */
+    private function areEqual($arg1, $arg2) {
+        if ($arg1["type"] === "nil" || $arg2["type"] === "nil") {
+            return $arg1["type"] === $arg2["type"];
+        }
+        $this->checkComparability($arg1, $arg2);
+        return $arg1["value"] === $arg2["value"];
     }
 
     /** 
@@ -502,22 +599,6 @@ class VirtualMachine {
         }
     }
 
-    /**
-     * Check if arg is of type label and exists.
-     * 
-     * @param array<string, string> $arg
-     * @return string
-     * @throws SemanticError
-     * @throws WrongOperandTypeException
-     */
-    private function label($arg) {
-        if ($arg["type"] !== "label")
-            throw new WrongOperandTypeException($arg["type"]);
-        if (!array_key_exists($arg["value"], $this->labels))
-            throw new SemanticError("Undefined label: ". $arg["value"]);
-        return $arg["value"];
-    }
-
     /** 
      * CALL <label>
      * 
@@ -579,34 +660,6 @@ class VirtualMachine {
         $dst = $this->var($args[1])["value"];
         $src = $this->dataStack->pop();
         $this->setVariable($dst, $src["type"], $src["value"]);
-    }
-
-    /**
-     * Convert a symbol to an integer.
-     * 
-     * @param array<string, string> $arg
-     * @return int
-     * @throws InvalidStructureException
-     * @throws WrongOperandTypeException
-     */
-    private function convertToInt($arg)
-    {
-        if ($arg["type"] !== "int") {
-            throw new WrongOperandTypeException($arg["type"]);
-        }
-
-        $value = $arg["value"];
-
-        $int = filter_var(
-            $value, 
-            FILTER_VALIDATE_INT, 
-            FILTER_NULL_ON_FAILURE | FILTER_FLAG_ALLOW_OCTAL | FILTER_FLAG_ALLOW_HEX
-        );
-        if ($int === null) {
-            throw new InvalidStructureException("Invalid argument value: ". $value);
-        }
-
-        return intval($value);
     }
 
     /** 
@@ -693,23 +746,6 @@ class VirtualMachine {
         $this->setVariable($dst, "int", strval($value));
     }
 
-    /** 
-     * Check if two symbols are comparable.
-     * 
-     * @param array<string, string> $arg1
-     * @param array<string, string> $arg2
-     * @return void
-     */
-    private function checkComparability($arg1, $arg2) {
-        if (!in_array($arg1["type"], array("int", "bool", "string"))) { // Only int bool string can be compared
-            throw new WrongOperandTypeException($arg1["type"]);
-        }
-
-        if ($arg1["type"] !== $arg2["type"]) {
-            throw new WrongOperandTypeException($arg1["type"] . " and " . $arg2["type"] . " are not equal");
-        }
-    }
-
     /**
      * LT <var> <symb1> <symb2>
      * 
@@ -755,22 +791,6 @@ class VirtualMachine {
     }
 
     /**
-     * Check if two symbols are equal.
-     * 
-     * @param array<string, string> $arg1
-     * @param array<string, string> $arg2
-     * @return bool
-     * @throws WrongOperandTypeException
-     */
-    private function areEqual($arg1, $arg2) {
-        if ($arg1["type"] === "nil" || $arg2["type"] === "nil") {
-            return $arg1["type"] === $arg2["type"];
-        }
-        $this->checkComparability($arg1, $arg2);
-        return $arg1["value"] === $arg2["value"];
-    }
-
-    /**
      * EQ <var> <symb1> <symb2>
      * 
      * Compare two values of the same type and store the result in a variable.
@@ -787,26 +807,6 @@ class VirtualMachine {
 
         $value = $this->areEqual($src1, $src2) ? "true" : "false";
         $this->setVariable($dst, "bool", $value);
-    }
-
-    /**
-     * Convert a symbol to a boolean.
-     * 
-     * @param array<string, string> $arg
-     * @return bool
-     * @throws WrongOperandTypeException
-     */
-    private function convertToBool($arg)
-    {
-        if ($arg["type"] !== "bool") {
-            throw new WrongOperandTypeException($arg["type"]);
-        }
-        // if ($arg["value"] === "true" || $arg["value"] === "1") {
-        //     return true;
-        // } else {
-        //     return false;
-        // }
-        return $arg["value"] === "true" || $arg["value"] === "1";
     }
 
     /**
