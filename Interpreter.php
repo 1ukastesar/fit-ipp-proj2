@@ -22,7 +22,7 @@ class Interpreter extends AbstractInterpreter
     /** @var array<string, int> */
     protected array $labels = [];
 
-    private function load(): int
+    private function load(): void
     {
         $dom = $this->source->getDOMDocument();
         $root = $dom->documentElement;
@@ -129,7 +129,6 @@ class Interpreter extends AbstractInterpreter
         // var_dump($instructions);
 
         $this->instructions = $instructions;
-        return 0;
     }
 
     private function resolve_labels(): void
