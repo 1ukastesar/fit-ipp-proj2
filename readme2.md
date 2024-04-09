@@ -27,3 +27,6 @@
 
 ## Design decicions and caveats
 - One of the caveats was how to represent `undefined` variable value. At first sight that `nil@<nothing>` could be used, but it turned out it could conflict with default nil type in some cases, so `undefined@<nothing>` is now used instead.
+
+## UML diagram
+- Class diagram built during implementation is located in the `class_diagram.pdf` file.
