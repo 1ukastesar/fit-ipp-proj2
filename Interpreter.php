@@ -122,12 +122,6 @@ class Interpreter extends AbstractInterpreter
         // Reindex the array to get "natural" order
         $instructions = array_values($instructions);
 
-        // foreach ($instructions as $instruction) {
-        //     $this->stderr->writeString($instruction. PHP_EOL);
-        // }
-
-        // var_dump($instructions);
-
         $this->instructions = $instructions;
     }
 
@@ -142,10 +136,6 @@ class Interpreter extends AbstractInterpreter
                 $this->labels[$label_name] = $order;
             }
         }
-
-        // foreach ($this->labels as $label => $order) {
-        //     $this->stderr->writeString($label . " " . $order . PHP_EOL);
-        // }
     }
 
     private function interpret(): void

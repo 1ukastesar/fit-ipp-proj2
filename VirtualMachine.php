@@ -215,9 +215,6 @@ class VirtualMachine {
             $this->executeInstruction($instruction);
             $this->ip++;
         }
-        // var_dump($this->globalFrame);
-        // var_dump($this->frameStack);
-        // var_dump($this->dataStack);
     }
 
     /**
@@ -307,7 +304,6 @@ class VirtualMachine {
                 $lf = $this->frameStack->pop();
                 $lf[$name] = ["type" => $type, "value" => $value];
                 $this->frameStack->push($lf);
-                // $this->frameStack->top()[$name] = ["type" => $type, "value" => $value];
                 break;
             case "TF":
                 if(!is_array($this->temporaryFrame)) {
@@ -584,7 +580,6 @@ class VirtualMachine {
                 $lf = $this->frameStack->pop();
                 $lf[$name] = ["type" => "undefined", "value" => ""];
                 $this->frameStack->push($lf);
-                // $this->frameStack->top()[$name] = ["type" => "nil", "value" => ""];
                 break;
             case "TF":
                 if(!is_array($this->temporaryFrame))
